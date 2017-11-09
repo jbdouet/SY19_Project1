@@ -36,7 +36,7 @@ data_clas.train<-data_clas[train,]
 # Classification 
 library(MASS)
 
-#### LDA ####
+########################### Model 1:LDA #####################
 
 lda.clas<- lda(y~.,data=data_clas.train)
 pred.clas<-predict(lda.clas,newdata=data_clas.test, type="response")
@@ -58,7 +58,8 @@ auc <-performance(pr, measure='auc')
 auc<- auc@y.values[[1]]
 auc
 
-### Regression logistique ###
+######################## Model 2: Regression logistique ############
+
 data_clas2.train  <- data_clas.train
 data_clas2.test  <- data_clas.test
 data_clas2.train$y <- data_clas.train$y-1
