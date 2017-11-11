@@ -69,7 +69,7 @@ data_clas2.test$y <- data_clas.test$y-1
 glm.fit<- glm(y~.,data=data_clas2.train,family=binomial)
 summary(glm.fit)
 # Pour regarder les coefficients significativement non nuls on selectionne ceux
-# avec 2 ou 3 etoiles dans le summary 
+# avec 2 ou 3 etoiles dans le summary # pas fait pour le moment
 pred.clas.glm<-predict(glm.fit,newdata=data_clas2.test, type = "response") # le type response est important pour avoir des probas !
 # Contrairement au lda il n'y a pas d'argument $class, il faut donc fixer un threshold
 table(data_clas2.test$y,pred.clas.glm>0.5) # on definit un threshold pour la classification
@@ -93,16 +93,21 @@ hist(pred.clas.glm, breaks = 10) # montre comment sont réparties les valeurs sa
 
 #### Cross validation regression logistique 
 
-K<-10
-folds=sample(1:K,n,replace=TRUE)
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
 CV<-rep(0,10)
-for(i in (1:10)){
-  for(k in (1:K)){ #### à modifier 
-    glm.fit<- glm(y~.,data=data_clas2.train,family=binomial)
-    cv_reg_glm<-predict(glm.fit,newdata=data_clas2.test)
-    reg<-lm(Formula[[i]],data=pollution[folds!=k,])
-    pred<-predict(reg,newdata=pollution[folds==k,])
-    CV[i]<-CV[i]+ sum((pollution$Mortality[folds==k]-pred)^2)
-  }
-  CV[i]<-CV[i]/n
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas2.train[-test_i, ]
+  test_xy <- data_clas2.train[test_i, ]
+  print(k)
+  glm.fit<- glm(y~.,data=train_xy,family=binomial)
+  cv_pred<-predict(glm.fit,newdata=test_xy, type = "response") 
+  CV[k]<- sum((test_xy$y-cv_pred)^2)
 }
+CVerror= sum(CV)/length(CV)
+
+
