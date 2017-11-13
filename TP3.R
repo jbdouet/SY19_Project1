@@ -95,13 +95,14 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   test_i <- which(folds_i == k)
   # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
   # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
-  train_xy <- data_clas2.train[-test_i, ]
-  test_xy <- data_clas2.train[test_i, ]
+  train_xy <- data_reg.train[-test_i, ]
+  test_xy <- data_reg.train[test_i, ]
   print(k)
   fitControl <- trainControl(method = "cv",number = 10)
-  model_lasso <- caret::train(data_reg.train[,-51],data_reg.train$y,method='lasso',trControl= fitControl)
-  cv_pred<-predict(glm.fit,newdata=test_xy, type = "response") 
-  CV[k]<- sum((test_xy$y-cv_pred)^2)
+  model_lasso <- caret::train(train_xy[,-51],train_xy$y,method='lasso',trControl= fitControl)
+  predictions_lasso<-predict.train(object=model_lasso,test_xy[,-51],type = "raw")
+  CV[k]<- mean((test_xy$y-predictions_lasso)^2)
 }
 CVerror= sum(CV)/length(CV)
-
+CVerror
+CV
