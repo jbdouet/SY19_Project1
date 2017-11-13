@@ -78,7 +78,7 @@ modelLookup(model='lasso') # no parameters to tune
 
 plot(model_lasso)# does not work if no parameters to tune
 
-plot(varImp(object=model_lasso),main="PCR - Variable Importance")
+plot(varImp(object=model_lasso),main="Lasso - Variable Importance")
 
 predictions_lasso<-predict.train(object=model_lasso,data_reg.test[,-51])
 
@@ -88,21 +88,42 @@ abline(0,1)
 
 
 n_folds <- 10
-folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+folds_i <- sample(rep(1:n_folds, length.out = n)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
 table(folds_i) # Pas le même nombre d'éléments 
 CV<-rep(0,10)
 for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   test_i <- which(folds_i == k)
   # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
   # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
-  train_xy <- data_reg.train[-test_i, ]
-  test_xy <- data_reg.train[test_i, ]
+  train_xy <- data_reg[-test_i, ]
+  test_xy <- data_reg[test_i, ]
   print(k)
   fitControl <- trainControl(method = "cv",number = 10)
   model_lasso <- caret::train(train_xy[,-51],train_xy$y,method='lasso',trControl= fitControl)
-  predictions_lasso<-predict.train(object=model_lasso,test_xy[,-51],type = "raw")
+  predictions_lasso<-predict.train(object=model_lasso,test_xy[,-51])
   CV[k]<- mean((test_xy$y-predictions_lasso)^2)
 }
 CVerror= sum(CV)/length(CV)
 CVerror
 CV
+
+
+#### randomGLM ###
+fitControl <- trainControl(method = "cv",number = 10)
+model_randomGLM <- caret::train(data_reg.train[,-51],data_reg.train$y,method='randomGLM',trControl= fitControl)
+
+model_randomGLM$results
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='randomGLM') # no parameters to tune
+
+plot(model_randomGLM)# does not work if no parameters to tune
+
+plot(varImp(object=model_randomGLM),main="randomGLM - Variable Importance")
+
+predictions_randomGLM<-predict.train(object=model_randomGLM,data_reg.test[,-51])
+
+mean((data_reg.test$y-predictions_randomGLM)^2)
+plot(predictions_randomGLM,data_reg.test$y)
+abline(0,1)  
+
+
