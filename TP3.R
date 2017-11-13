@@ -19,6 +19,21 @@ confint(reg,level=0.95)
 y <-fitted(reg,data_reg.test)
 y
 
+####   Pcr   ####
+
+model_pcr <- caret::train(data_reg.train[,-51],data_reg.train$y,method='pcr')
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='pcr') # no parameters to tune
+
+plot(model_pcr)# does not work if no parameters to tune
+
+plot(varImp(object=model_pcr),main="PCR - Variable Importance")
+
+predictions_pcr<-predict.train(object=model_pcr,data_reg.test[,-51],type="raw")
+
+
+plot(predictions_pcr,data_reg.test$y)
 
 ################## CLASSIFICATION ############
 
