@@ -1,3 +1,6 @@
+set.seed(42)
+library(MASS)
+library(caret)
 ################## REGRESSION LINEAIRE ############
 
 data_reg<-read.csv('data/tp3_reg_app.txt',sep=' ')
@@ -15,13 +18,11 @@ confint(reg,level=0.95)
 
 y <-fitted(reg,data_reg.test)
 y
+
+
 ################## CLASSIFICATION ############
 
 data_clas<-read.csv('data/tp3_clas_app.txt',sep=' ')
-
-# pas de variables categoriques, pas de valeur manquante 
-
-# Normalization 
 
 # Separation train-test
 
@@ -32,9 +33,34 @@ train<-sample(1:n,ntrain)
 data_clas.test<-data_clas[-train,]
 data_clas.train<-data_clas[train,]
 
+### Missing values 
 
-# Classification 
-library(MASS)
+sum(is.na(data_clas.train))
+sum(is.na(data_clas.test))
+# -> no missing values 
+
+### Balance classes
+
+dim(data_clas[data_clas$y ==1,])
+dim(data_clas[data_clas$y ==2,])
+# -> Imbalanced classes 
+
+### Standardize data ###
+
+# on met la colonne y comme type factor pour ne pas la standardizer puisque que les chiffres 1 et 2 representent des classes
+data_clas.train$y=as.factor(data_clas.train$y) 
+data_clas.test$y=as.factor(data_clas.test$y)
+
+# On standardize et on remet les variables sous forme de data frames
+data_clas_scaled.train<- lapply(data_clas.train, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+data_clas_scaled.train=as.data.frame(data_clas_scaled.train)
+
+data_clas_scaled.test<- lapply(data_clas.test, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+data_clas_scaled.test=as.data.frame(data_clas_scaled.test)
 
 ########################### Model 1:LDA #####################
 
@@ -110,4 +136,128 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
 }
 CVerror= sum(CV)/length(CV)
 
+#### Modeles avec librairie caret ###
 
+names(getModelInfo()) # donne le nom des modeles 
+
+####   GLM    ####
+
+model_glm <- train(data_clas_scaled.train[,-31],data_clas_scaled.train$y,method='glm',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='glm') # no parameters to tune
+
+plot(model_glm) # does not work if no parameters to tune
+
+plot(varImp(object=model_glm),main="glm - Variable Importance")
+
+predictions_glm<-predict.train(object=model_glm,data_clas_scaled.test[,-31],type="raw")
+table(predictions_glm)
+
+confusionMatrix(predictions_glm,data_clas_scaled.test$y)
+
+####   rf - random forest    ####
+
+model_rf <- train(data_clas_scaled.train[,-31],data_clas_scaled.train$y,method='rf',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='rf') # no parameters to tune
+
+plot(model_rf)# does not work if no parameters to tune
+
+plot(varImp(object=model_rf),main="rf - Variable Importance")
+
+predictions_rf<-predict.train(object=model_rf,data_clas_scaled.test[,-31],type="raw")
+table(predictions_rf)
+
+confusionMatrix(predictions_rf,data_clas_scaled.test$y)
+
+####   nnet    ####
+
+model_nnet <- train(data_clas.train[,-31],data_clas.train$y,method='nnet',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='nnet') # no parameters to tune
+
+plot(model_nnet)# does not work if no parameters to tune
+
+plot(varImp(object=model_nnet),main="nnet - Variable Importance")
+
+predictions_nnet<-predict.train(object=model_nnet,data_clas.test[,-31],type="raw")
+table(predictions_nnet)
+
+confusionMatrix(predictions_nnet,data_clas.test$y)
+
+####   Naive Bayes    ####
+
+model_naive_bayes <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='naive_bayes',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='naive_bayes') # no parameters to tune
+
+plot(model_naive_bayes)# does not work if no parameters to tune
+
+plot(varImp(object=model_naive_bayes),main="naive_bayes - Variable Importance")
+
+predictions_naive_bayes<-predict.train(object=model_naive_bayes,data_clas_scaled.test[,-31],type="raw")
+table(predictions_naive_bayes)
+
+confusionMatrix(predictions_naive_bayes,data_clas.test$y) # accuracy =0.7424
+
+####   SVM poly   ####
+
+model_svmPoly <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='svmPoly',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='svmPoly') # no parameters to tune
+
+plot(model_svmPoly)# does not work if no parameters to tune
+
+plot(varImp(object=model_svmPoly),main="svmPoly - Variable Importance")
+
+predictions_svmPoly<-predict.train(object=model_svmPoly,data_clas_scaled.test[,-31],type="raw")
+table(predictions_svmPoly)
+
+confusionMatrix(predictions_svmPoly,data_clas.test$y) 
+
+####   mlpML   ####
+
+model_mlpML <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='mlpML',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='mlpML') # no parameters to tune
+
+plot(model_mlpML)# does not work if no parameters to tune
+
+plot(varImp(object=model_mlpML),main="mlpML - Variable Importance")
+
+predictions_mlpML<-predict.train(object=model_mlpML,data_clas_scaled.test[,-31],type="raw")
+table(predictions_mlpML)
+
+confusionMatrix(predictions_mlpML,data_clas.test$y) 
+
+
+#### Regularization
+
+
+
+
+### Principal component analysis 
