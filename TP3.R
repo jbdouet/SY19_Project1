@@ -16,12 +16,41 @@ reg <- lm(y~., data = data_reg.train)
 summary(reg)
 confint(reg,level=0.95)
 
-y <-fitted(reg,data_reg.test)
-y
+yhat <-predict(reg,data_reg.test)
+length(yhat)
+
+mean((yhat-data_reg.test$y)^2)
+plot(yhat,data_reg.test$y)
+abline(0,1)
+
+### Avec normalisation 
+
+data_reg_scaled.train<- lapply(data_reg.train, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+data_reg_scaled.train=as.data.frame(data_reg_scaled.train)
+
+data_reg_scaled.test<- lapply(data_reg.test, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+data_reg_scaled.test=as.data.frame(data_reg_scaled.test)
+
+reg_scale <- lm(y~., data = data_reg_scaled.train)
+
+summary(reg_scale)
+confint(reg,level=0.95)
+
+yhat_scale <-predict(reg_scale,data_reg_scaled.test)
+length(yhat_scale)
+
+mean((yhat_scale-data_reg_scaled.test$y)^2)
+plot(yhat_scale,data_reg_scaled.test$y)
+abline(0,1)
 
 ####   Pcr   ####
 
-model_pcr <- caret::train(data_reg.train[,-51],data_reg.train$y,method='pcr')
+model_pcr <- caret::train(data_reg.train[,-51],data_reg.train$y,method='pcr',
+                          trainControl(method = "cv", number = 3, returnResamp = "all"))
 
 #pour voir quels paramètres peuvent être "tuned":
 modelLookup(model='pcr') # no parameters to tune
@@ -32,9 +61,10 @@ plot(varImp(object=model_pcr),main="PCR - Variable Importance")
 
 predictions_pcr<-predict.train(object=model_pcr,data_reg.test[,-51],type="raw")
 
-
+mean((data_reg.test$y-predictions_pcr)^2)
 plot(predictions_pcr,data_reg.test$y)
-
+abline(0,1)
+summary(model_pcr)
 ################## CLASSIFICATION ############
 
 data_clas<-read.csv('data/tp3_clas_app.txt',sep=' ')
