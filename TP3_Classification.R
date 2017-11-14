@@ -178,7 +178,7 @@ confusionMatrix(predictions_nnet,data_clas.test$y)
 
 ####   Naive Bayes    ####
 
-model_naive_bayes <- train(data_clas.train[,-31],data_clas.train$y,method='naive_bayes',trControl= trainControl(
+model_naive_bayes <- train(data_clas.train[,-31],data_clas.train$y,method='nb',trControl= trainControl(
   method = "cv",
   number =10,
   verboseIter = TRUE))
@@ -193,13 +193,39 @@ plot(varImp(object=model_naive_bayes),main="naive_bayes - Variable Importance")
 predictions_naive_bayes<-predict.train(object=model_naive_bayes,data_clas.test[,-31])
 table(predictions_naive_bayes)
 
-confusionMatrix(predictions_naive_bayes,data_clas.test$y) # accuracy =0.7879
+cf<-confusionMatrix(predictions_naive_bayes,data_clas.test$y) # accuracy =0.7879
+cf$overall["Accuracy"]
 
+#### CV Naive Bayes ####
+
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas.train[-test_i, ]
+  test_xy <- data_clas.train[test_i, ]
+  print(k)
+  model_naive_bayes <- train(train_xy[,-31],train_xy$y,method='nb',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_naive_bayes<-predict.train(object=model_naive_bayes,test_xy[,-31])
+  cf<-confusionMatrix(predictions_naive_bayes,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
+}
+CVerror= sum(CV)/length(CV)
+CV
+CVerror
 ####   SVM poly   ####
 
 model_svmPoly <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='svmPoly',trControl= trainControl(
-  method = "cv",
+  method = "repeatedcv",
   number =10,
+  repeats = 10,
   verboseIter = TRUE))
 
 #pour voir quels paramètres peuvent être "tuned":
@@ -214,40 +240,22 @@ table(predictions_svmPoly)
 
 confusionMatrix(predictions_svmPoly,data_clas_scaled.test$y) 
 
-####   mlpML   ####
 
-model_mlpML <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='mlpML',trControl= trainControl(
-  method = "cv",
-  number =10,
-  verboseIter = TRUE))
-
-#pour voir quels paramètres peuvent être "tuned":
-modelLookup(model='mlpML') # no parameters to tune
-
-plot(model_mlpML)# does not work if no parameters to tune
-
-plot(varImp(object=model_mlpML),main="mlpML - Variable Importance")
-
-predictions_mlpML<-predict.train(object=model_mlpML,data_clas_scaled.test[,-31],type="raw")
-table(predictions_mlpML)
-
-confusionMatrix(predictions_mlpML,data_clas.test$y) 
-
-
-### Principal component analysis 
-ncomp <-12
-summary(prcomp(data_clas_scaled.train[,-31], scale = FALSE))
-train_pca<-prcomp(data_clas_scaled.train[,-31], scale = FALSE)
+### Principal component analysis - SVM
+ncomp <-30
+summary(prcomp(data_clas.train[,-31], scale = FALSE))
+train_pca<-prcomp(data_clas.train[,-31], scale = FALSE)
 train_pca<- train_pca$x[,1:ncomp]
-train_pca.y <- data_clas_scaled.train$y
+train_pca.y <- data_clas.train$y
 
-test_pca<-prcomp(data_clas_scaled.test[,-31], scale = FALSE)
+test_pca<-prcomp(data_clas.test[,-31], scale = FALSE)
 test_pca<- test_pca$x[,1:ncomp]
-test_pca.y <-data_clas_scaled.test$y
+test_pca.y <-data_clas.test$y
 
-model_pca_svmPoly <- train(train_pca,train_pca.y,method='svmPoly',trControl= trainControl(
-  method = "cv",
+model_pca_svmPoly<- train(train_pca,train_pca.y,method='svmPoly',trControl= trainControl(
+  method = "repeatedcv",
   number =10,
+  repeats = 10,
   verboseIter = TRUE))
 
 #pour voir quels paramètres peuvent être "tuned":
@@ -257,13 +265,44 @@ plot(model_pca_svmPoly)# does not work if no parameters to tune
 
 plot(varImp(object=model_pca_svmPoly),main="svmPoly - Variable Importance")
 
-predictions_pca_svmPoly<-predict.train(object=model_pca_svmPoly,test_pca,type="raw")
+predictions_pca_svmPoly<-predict.train(object=model_pca_svmPoly,test_pca)
 table(predictions_pca_svmPoly)
+confusionMatrix(predictions_pca_svmPoly,data_clas.test$y) 
 
-confusionMatrix(predictions_pca_svmPoly,test_pca.y) 
+
+### Principal component analysis - NAive bayes
+ncomp <-20
+summary(prcomp(data_clas.train[,-31], scale = FALSE))
+train_pca<-prcomp(data_clas.train[,-31], scale = FALSE)
+train_pca<- train_pca$x[,1:ncomp]
+train_pca.y <- data_clas.train$y
+
+test_pca<-prcomp(data_clas.test[,-31], scale = FALSE)
+test_pca<- test_pca$x[,1:ncomp]
+test_pca.y <-data_clas.test$y
+
+model_pca_naive_bayes<- train(train_pca,train_pca.y,method='naive_bayes',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='naive_bayes') # no parameters to tune
+
+plot(model_pca_naive_bayes)# does not work if no parameters to tune
+
+plot(varImp(object=model_pca_naive_bayes),main="naive_bayes - Variable Importance")
+
+predictions_pca_naive_bayes<-predict.train(object=model_pca_naive_bayes,test_pca)
+table(predictions_pca_naive_bayes)
+
+confusionMatrix(predictions_pca_naive_bayes,test_pca.y) 
 
 
-#####
+
+
+
+##### PCA regression logistique
 
 trainBis = as.data.frame(cbind(train_pca, train_pca.y))
 testBis= as.data.frame(cbind(test_pca, test_pca.y))
