@@ -1,0 +1,117 @@
+---
+title: "Rapport TP4: Regression et Classification"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Dans ce TP nous allons travailler sur deux problèmes: le premier de regression et le deuxième de classification. Le but est de trouver le meilleur prédicteur pour ces deux problèmes.  
+
+## Régression linéaire
+
+Nous disposons d'un jeu de données comportant 50 variables, nos préditeurs. Le but sera donc de trouver quel modèle nous permettra de prédire le plus efficacement nos données. Pour cela nous alons entrainer nos modèles sur un echantillon d'entrainement pour ensuite faire nos prédictions sur notre echantillon de test.
+
+Dans un premier nous allons faire une régression linéaire classique. Cependant, pour pouvoir comparer de manière la plus juste les différents modèles, nous avons décidé d'utiliser la Cross Validation et pour pouvoir avoir un estimateur non biaisé nous avons mis en place deux boucles imbriquées de Cross Validation. 
+
+
+```{r}
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = n)) 
+table(folds_i)
+CV<-rep(0,10)
+```
+Nous commençons donc par mettre en place notre Validation Cross, on choisit de diviser notre jeu de données en 10 parties grâce à la fonction sample puis nous initialisons un vecteur nul de taille 10. A noter que la fonction sample va donc diviser de manière aléatoire ce qui ajoute un peu de volatilité dans nos calculs.
+
+```{r}
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  train_xy <- data_reg[-test_i, ]
+  test_xy <- data_reg[test_i, ]
+  fitControl <- trainControl(method = "cv",number = 10)
+  model_lm <- caret::train(train_xy[,-51],train_xy$y,method='lm',trControl= fitControl)
+  predictions_lm<-predict.train(object=model_lm,test_xy[,-51])
+  CV[k]<- mean((test_xy$y-predictions_lm)^2)
+}
+```
+En utilisant l'algorithme de la Cross Validation, nous créons donc nos differents compartiments de données, à chaque itération nous allons entrainer sur des compartiments et prédire sur un autre. fitControl nous permet de faire notre double Cross Validation. En effet, il va faire une Cross Validation lors de l'entrainement de notre modèle ainsi qu'optimiser si possible certains paramètres de ce dernier. On peut ensuite lancer notre prédiction sur le compartiment de test en se basant sur le modèle entrainé précedemment. Pour juger de la pertinence de notre modèle, nous devons calculer le MSE (mean squared error), c'est cette valeur que nous devons minimiser. Elle correspond à la moyenne des carrés de la difference entre nos valeurs de test et nos valeurs prédites à l'aide de notre modèle. 
+
+```{r}
+CVerror= sum(CV)/length(CV)
+```
+
+Pour évaluer au mieux notre MSE nous faisons enfin la moyenne des MSE trouvés à chaque itérations de notre boucle. C'est alors cette valeur qui va nous permettre de comparer l'efficacité des modèles entre eux. Pour ce premier modèle, il vaut en moyenne 99.
+
+Après ce premier modèle nous avons tenté de l'améliorer avec le modèle Lasso. Nous allons procéder de la même manière que pour notre première régression lineaire mais cette fois ci notre modèle d'entrainement sera le modèle Lasso.
+
+```{r}
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = n)) 
+table(folds_i)
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  train_xy <- data_reg[-test_i, ]
+  test_xy <- data_reg[test_i, ]
+  fitControl <- trainControl(method = "cv",number = 10)
+  model_lasso <- caret::train(train_xy[,-51],train_xy$y,method='lasso',trControl= fitControl)
+  predictions_lasso<-predict.train(object=model_lasso,test_xy[,-51])
+  CV[k]<- mean((test_xy$y-predictions_lasso)^2)
+}
+CVerror= sum(CV)/length(CV)
+```
+
+Ici nous avons amélioré notre CVerror puisqu'il vaut en moyenne 92.
+
+Nous avons ensuite tenté d'améliorer ce résultat avec d'autres approches. La première étant de réaliser notre régression linéaire en ne sélectionnant que les prédicteurs les plus significatifs.
+
+```{r}
+reg <- lm(y~., data = data_reg.train)
+sm <-summary(reg)
+```
+
+Grâce à summary(reg), nous pouvons identifier les prédicteurs les plus significatifs et ensuite réaliser une régression linéaire sur ces derniers. 
+
+```{r}
+lm.model<- lm(y~X4+X12+X19+X22+X24+X27+X35+X39+X41, data = data_reg.train)
+pred2<-predict(lm.model, newdata = data_reg.test)
+yi <- data_reg.test$y
+mean((yi - pred2)^2)
+```
+
+Cependant cette approche est loin d'être concluante puisque notre MSE s'élève à 110. En diminuant le nombre de nos prédicteurs on a effectivement baisser notre variance mais notre modèle représente moins bien nos valeurs. 
+
+Nous avons également tenté d'améliorer notre modèle en utilisant la technique du Best Subet en limitant à 15 prédicteurs. Cette technique vise à choisir un modèle utilisant l'ensemble contenant au maximum 15 prédicteurs le plus efficace possible. 
+
+```{r}
+lm.fit<-regsubsets(y~.,data=data_reg.train,method='exhaustive', nvmax=15, really.big = T)
+plot(lm.fit,scale="r2")
+```
+
+Ce graphique nous permet de déterminer le meilleur modèle contenant 15 prédicteurs. 
+
+```{r}
+lm_subset<- lm(y~X4+X6+X8+X12+X19+X20+X22+X24+X27+X30+X32+X35+X39+X41+X48, data = data_reg.train)
+pred_sub<-predict(lm_subset, newdata = data_reg.test)
+mean((yi - pred_sub)^2)
+```
+Cependant le MSE de ce modèle est de 100 ce qui est encore une fois moins performant que notre modèle Lasso. On peut également remarquer que si on ne bride pas la valeur nvmax, alors cette technique choisira de prendre les 50 prédicteurs et donc nous rapprochera de la première regression classique. 
+La technique du forward stepwise nous donne les mêmes résultats que le Best subset.
+
+
+
+
+
+
+
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
