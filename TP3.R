@@ -48,6 +48,30 @@ mean((yhat_scale-data_reg_scaled.test$y)^2)
 plot(yhat_scale,data_reg_scaled.test$y)
 abline(0,1)
 
+### Avec CV
+
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = n)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_reg[-test_i, ]
+  test_xy <- data_reg[test_i, ]
+  print(k)
+  fitControl <- trainControl(method = "cv",number = 10)
+  model_lm <- caret::train(train_xy[,-51],train_xy$y,method='lm',trControl= fitControl)
+  predictions_lm<-predict.train(object=model_lm,test_xy[,-51])
+  CV[k]<- mean((test_xy$y-predictions_lm)^2)
+}
+CVerror= sum(CV)/length(CV)
+CVerror
+CV
+
+
+
 ####   Pcr   ####
 fitControl <- trainControl(method = "cv",number = 10)
 grid <- expand.grid(ncomp=c(3,5,10,20, 30,36,50))
