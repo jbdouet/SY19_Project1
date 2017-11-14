@@ -131,6 +131,7 @@ CVerror= sum(CV)/length(CV)
 CVerror
 CV
 
+regresseur <- caret::train(data_reg[,-51],data_reg$y,method='lasso',trControl= fitControl)
 
 #### randomGLM ###
 fitControl <- trainControl(method = "cv",number = 10)

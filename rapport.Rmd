@@ -9,13 +9,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-Dans ce TP nous allons travailler sur deux problèmes: le premier de regression et le deuxième de classification. Le but est de trouver le meilleur prédicteur pour ces deux problèmes.  
+Dans ce TP nous allons travailler sur deux probl?mes: le premier de regression et le deuxi?me de classification. Le but est de trouver le meilleur pr?dicteur pour ces deux probl?mes.  
 
-## Régression linéaire
+## R?gression lin?aire
 
-Nous disposons d'un jeu de données comportant 50 variables, nos préditeurs. Le but sera donc de trouver quel modèle nous permettra de prédire le plus efficacement nos données. Pour cela nous alons entrainer nos modèles sur un echantillon d'entrainement pour ensuite faire nos prédictions sur notre echantillon de test.
+Nous disposons d'un jeu de donn?es comportant 50 variables, nos pr?diteurs. Le but sera donc de trouver quel mod?le nous permettra de pr?dire le plus efficacement nos donn?es. Pour cela nous alons entrainer nos mod?les sur un echantillon d'entrainement pour ensuite faire nos pr?dictions sur notre echantillon de test.
 
-Dans un premier nous allons faire une régression linéaire classique. Cependant, pour pouvoir comparer de manière la plus juste les différents modèles, nous avons décidé d'utiliser la Cross Validation et pour pouvoir avoir un estimateur non biaisé nous avons mis en place deux boucles imbriquées de Cross Validation. 
+Dans un premier nous allons faire une r?gression lin?aire classique. Cependant, pour pouvoir comparer de mani?re la plus juste les diff?rents mod?les, nous avons d?cid? d'utiliser la Cross Validation et pour pouvoir avoir un estimateur non biais? nous avons mis en place deux boucles imbriqu?es de Cross Validation. 
 
 
 ```{r}
@@ -24,7 +24,7 @@ folds_i <- sample(rep(1:n_folds, length.out = n))
 table(folds_i)
 CV<-rep(0,10)
 ```
-Nous commençons donc par mettre en place notre Validation Cross, on choisit de diviser notre jeu de données en 10 parties grâce à la fonction sample puis nous initialisons un vecteur nul de taille 10. A noter que la fonction sample va donc diviser de manière aléatoire ce qui ajoute un peu de volatilité dans nos calculs.
+Nous commen?ons donc par mettre en place notre Validation Cross, on choisit de diviser notre jeu de donn?es en 10 parties gr?ce ? la fonction sample puis nous initialisons un vecteur nul de taille 10. A noter que la fonction sample va donc diviser de mani?re al?atoire ce qui ajoute un peu de volatilit? dans nos calculs.
 
 ```{r}
 for (k in 1:n_folds) {# we loop on the number of folds, to build k models
@@ -37,15 +37,15 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   CV[k]<- mean((test_xy$y-predictions_lm)^2)
 }
 ```
-En utilisant l'algorithme de la Cross Validation, nous créons donc nos differents compartiments de données, à chaque itération nous allons entrainer sur des compartiments et prédire sur un autre. fitControl nous permet de faire notre double Cross Validation. En effet, il va faire une Cross Validation lors de l'entrainement de notre modèle ainsi qu'optimiser si possible certains paramètres de ce dernier. On peut ensuite lancer notre prédiction sur le compartiment de test en se basant sur le modèle entrainé précedemment. Pour juger de la pertinence de notre modèle, nous devons calculer le MSE (mean squared error), c'est cette valeur que nous devons minimiser. Elle correspond à la moyenne des carrés de la difference entre nos valeurs de test et nos valeurs prédites à l'aide de notre modèle. 
+En utilisant l'algorithme de la Cross Validation, nous cr?ons donc nos differents compartiments de donn?es, ? chaque it?ration nous allons entrainer sur des compartiments et pr?dire sur un autre. fitControl nous permet de faire notre double Cross Validation. En effet, il va faire une Cross Validation lors de l'entrainement de notre mod?le ainsi qu'optimiser si possible certains param?tres de ce dernier. On peut ensuite lancer notre pr?diction sur le compartiment de test en se basant sur le mod?le entrain? pr?cedemment. Pour juger de la pertinence de notre mod?le, nous devons calculer le MSE (mean squared error), c'est cette valeur que nous devons minimiser. Elle correspond ? la moyenne des carr?s de la difference entre nos valeurs de test et nos valeurs pr?dites ? l'aide de notre mod?le. 
 
 ```{r}
 CVerror= sum(CV)/length(CV)
 ```
 
-Pour évaluer au mieux notre MSE nous faisons enfin la moyenne des MSE trouvés à chaque itérations de notre boucle. C'est alors cette valeur qui va nous permettre de comparer l'efficacité des modèles entre eux. Pour ce premier modèle, il vaut en moyenne 99.
+Pour ?valuer au mieux notre MSE nous faisons enfin la moyenne des MSE trouv?s ? chaque it?rations de notre boucle. C'est alors cette valeur qui va nous permettre de comparer l'efficacit? des mod?les entre eux. Pour ce premier mod?le, il vaut en moyenne 99.
 
-Après ce premier modèle nous avons tenté de l'améliorer avec le modèle Lasso. Nous allons procéder de la même manière que pour notre première régression lineaire mais cette fois ci notre modèle d'entrainement sera le modèle Lasso.
+Apr?s ce premier mod?le nous avons tent? de l'am?liorer avec le mod?le Lasso. Nous allons proc?der de la m?me mani?re que pour notre premi?re r?gression lineaire mais cette fois ci notre mod?le d'entrainement sera le mod?le Lasso.
 
 ```{r}
 n_folds <- 10
@@ -64,16 +64,16 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
 CVerror= sum(CV)/length(CV)
 ```
 
-Ici nous avons amélioré notre CVerror puisqu'il vaut en moyenne 92.
+Ici nous avons am?lior? notre CVerror puisqu'il vaut en moyenne 92.
 
-Nous avons ensuite tenté d'améliorer ce résultat avec d'autres approches. La première étant de réaliser notre régression linéaire en ne sélectionnant que les prédicteurs les plus significatifs.
+Nous avons ensuite tent? d'am?liorer ce r?sultat avec d'autres approches. La premi?re ?tant de r?aliser notre r?gression lin?aire en ne s?lectionnant que les pr?dicteurs les plus significatifs.
 
 ```{r}
 reg <- lm(y~., data = data_reg.train)
 sm <-summary(reg)
 ```
 
-Grâce à summary(reg), nous pouvons identifier les prédicteurs les plus significatifs et ensuite réaliser une régression linéaire sur ces derniers. 
+Gr?ce ? summary(reg), nous pouvons identifier les pr?dicteurs les plus significatifs et ensuite r?aliser une r?gression lin?aire sur ces derniers. 
 
 ```{r}
 lm.model<- lm(y~X4+X12+X19+X22+X24+X27+X35+X39+X41, data = data_reg.train)
@@ -82,24 +82,24 @@ yi <- data_reg.test$y
 mean((yi - pred2)^2)
 ```
 
-Cependant cette approche est loin d'être concluante puisque notre MSE s'élève à 110. En diminuant le nombre de nos prédicteurs on a effectivement baisser notre variance mais notre modèle représente moins bien nos valeurs. 
+Cependant cette approche est loin d'?tre concluante puisque notre MSE s'?l?ve ? 110. En diminuant le nombre de nos pr?dicteurs on a effectivement baisser notre variance mais notre mod?le repr?sente moins bien nos valeurs. 
 
-Nous avons également tenté d'améliorer notre modèle en utilisant la technique du Best Subet en limitant à 15 prédicteurs. Cette technique vise à choisir un modèle utilisant l'ensemble contenant au maximum 15 prédicteurs le plus efficace possible. 
+Nous avons ?galement tent? d'am?liorer notre mod?le en utilisant la technique du Best Subet en limitant ? 15 pr?dicteurs. Cette technique vise ? choisir un mod?le utilisant l'ensemble contenant au maximum 15 pr?dicteurs le plus efficace possible. 
 
 ```{r}
 lm.fit<-regsubsets(y~.,data=data_reg.train,method='exhaustive', nvmax=15, really.big = T)
 plot(lm.fit,scale="r2")
 ```
 
-Ce graphique nous permet de déterminer le meilleur modèle contenant 15 prédicteurs. 
+Ce graphique nous permet de d?terminer le meilleur mod?le contenant 15 pr?dicteurs. 
 
 ```{r}
 lm_subset<- lm(y~X4+X6+X8+X12+X19+X20+X22+X24+X27+X30+X32+X35+X39+X41+X48, data = data_reg.train)
 pred_sub<-predict(lm_subset, newdata = data_reg.test)
 mean((yi - pred_sub)^2)
 ```
-Cependant le MSE de ce modèle est de 100 ce qui est encore une fois moins performant que notre modèle Lasso. On peut également remarquer que si on ne bride pas la valeur nvmax, alors cette technique choisira de prendre les 50 prédicteurs et donc nous rapprochera de la première regression classique. 
-La technique du forward stepwise nous donne les mêmes résultats que le Best subset.
+Cependant le MSE de ce mod?le est de 100 ce qui est encore une fois moins performant que notre mod?le Lasso. On peut ?galement remarquer que si on ne bride pas la valeur nvmax, alors cette technique choisira de prendre les 50 pr?dicteurs et donc nous rapprochera de la premi?re regression classique. 
+La technique du forward stepwise nous donne les m?mes r?sultats que le Best subset.
 
 
 

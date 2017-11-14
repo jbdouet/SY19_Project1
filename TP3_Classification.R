@@ -1,6 +1,8 @@
 set.seed(42)
 library(MASS)
 library(caret)
+library("pROC")
+library("ROCR")
 
 ################## CLASSIFICATION ############
 
@@ -23,8 +25,8 @@ sum(is.na(data_clas.test))
 
 ### Balance classes
 
-dim(data_clas[data_clas$y ==1,])
-dim(data_clas[data_clas$y ==2,])
+dim(data_clas[data_clas$y ==1,]) # 77 elements 
+dim(data_clas[data_clas$y ==2,]) # 123 elements 
 # -> Imbalanced classes 
 
 ### Standardize data ###
@@ -57,11 +59,10 @@ accuracy = sum(diag(cm)) / sum(cm) # = 0.7272727
 precision = cm[1,1]/ apply(cm, 1, sum)[1]
 recall =  cm[1,1] /  apply(cm, 2, sum)[1]
 f1 = 2 * precision * recall / (precision + recall) 
-library("pROC")
+
 roc_curve<-roc(data_clas.test$y,as.vector(pred.clas$x))
 plot(roc_curve)
 
-library("ROCR")
 pr <- prediction(pred.clas$x,data_clas.test$y )
 auc <-performance(pr, measure='auc')
 auc<- auc@y.values[[1]]
@@ -69,27 +70,23 @@ auc
 
 ######################## Model 2: Regression logistique ############
 
-data_clas2.train  <- data_clas.train
-data_clas2.test  <- data_clas.test
-data_clas2.train$y <- data_clas.train$y-1
-data_clas2.test$y <- data_clas.test$y-1
 
-glm.fit<- glm(y~.,data=data_clas2.train,family=binomial)
+glm.fit<- glm(y~.,data=data_clas.train,family=binomial)
 summary(glm.fit)
 # Pour regarder les coefficients significativement non nuls on selectionne ceux
 # avec 2 ou 3 etoiles dans le summary # pas fait pour le moment
-pred.clas.glm<-predict(glm.fit,newdata=data_clas2.test, type = "response") # le type response est important pour avoir des probas !
+pred.clas.glm<-predict(glm.fit,newdata=data_clas.test, type = "response") # le type response est important pour avoir des probas !
 # Contrairement au lda il n'y a pas d'argument $class, il faut donc fixer un threshold
-table(data_clas2.test$y,pred.clas.glm>0.5) # on definit un threshold pour la classification
-prop.table(table(data_clas2.test$y,pred.clas.glm>0.5))
-logit<-predict(glm.fit,newdata=data_clas2.test,type='link') 
+table(data_clas.test$y,pred.clas.glm>0.5) # on definit un threshold pour la classification
+prop.table(table(data_clas.test$y,pred.clas.glm>0.5))
+logit<-predict(glm.fit,newdata=data_clas.test,type='link') 
 # le type link est le type par defaut et ne renvoie pas de proba, ils correspondent au log-odds
 # voir lien proba/log-odds ici https://stats.idre.ucla.edu/other/mult-pkg/faq/general/faq-how-do-i-interpret-odds-ratios-in-logistic-regression/
-roc_glm<-roc(data_clas2.test$y,pred.clas.glm)
+roc_glm<-roc(data_clas.test$y,pred.clas.glm)
 
 plot(roc_glm,add=TRUE,col='red')
 
-cm_glm= as.matrix(table(data_clas2.test$y,pred.clas.glm>0.5))
+cm_glm= as.matrix(table(data_clas.test$y,pred.clas.glm>0.5))
 accuracy_glm = sum(diag(cm_glm)) / sum(cm_glm) 
 precision_glm = cm_glm[1,1]/ apply(cm_glm, 1, sum)[1]
 recall_glm =cm_glm[1,1] /  apply(cm_glm, 2, sum)[1]
@@ -109,8 +106,8 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   test_i <- which(folds_i == k)
   # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
   # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
-  train_xy <- data_clas2.train[-test_i, ]
-  test_xy <- data_clas2.train[test_i, ]
+  train_xy <- data_clas.train[-test_i, ]
+  test_xy <- data_clas.train[test_i, ]
   print(k)
   glm.fit<- glm(y~.,data=train_xy,family=binomial)
   cv_pred<-predict(glm.fit,newdata=test_xy, type = "response") 
@@ -181,7 +178,7 @@ confusionMatrix(predictions_nnet,data_clas.test$y)
 
 ####   Naive Bayes    ####
 
-model_naive_bayes <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='naive_bayes',trControl= trainControl(
+model_naive_bayes <- train(data_clas.train[,-31],data_clas.train$y,method='naive_bayes',trControl= trainControl(
   method = "cv",
   number =10,
   verboseIter = TRUE))
@@ -193,10 +190,10 @@ plot(model_naive_bayes)# does not work if no parameters to tune
 
 plot(varImp(object=model_naive_bayes),main="naive_bayes - Variable Importance")
 
-predictions_naive_bayes<-predict.train(object=model_naive_bayes,data_clas_scaled.test[,-31],type="raw")
+predictions_naive_bayes<-predict.train(object=model_naive_bayes,data_clas.test[,-31])
 table(predictions_naive_bayes)
 
-confusionMatrix(predictions_naive_bayes,data_clas.test$y) # accuracy =0.7424
+confusionMatrix(predictions_naive_bayes,data_clas.test$y) # accuracy =0.7879
 
 ####   SVM poly   ####
 
@@ -215,7 +212,7 @@ plot(varImp(object=model_svmPoly),main="svmPoly - Variable Importance")
 predictions_svmPoly<-predict.train(object=model_svmPoly,data_clas_scaled.test[,-31],type="raw")
 table(predictions_svmPoly)
 
-confusionMatrix(predictions_svmPoly,data_clas.test$y) 
+confusionMatrix(predictions_svmPoly,data_clas_scaled.test$y) 
 
 ####   mlpML   ####
 
@@ -237,9 +234,63 @@ table(predictions_mlpML)
 confusionMatrix(predictions_mlpML,data_clas.test$y) 
 
 
-#### Regularization
-
-
-
-
 ### Principal component analysis 
+ncomp <-12
+summary(prcomp(data_clas_scaled.train[,-31], scale = FALSE))
+train_pca<-prcomp(data_clas_scaled.train[,-31], scale = FALSE)
+train_pca<- train_pca$x[,1:ncomp]
+train_pca.y <- data_clas_scaled.train$y
+
+test_pca<-prcomp(data_clas_scaled.test[,-31], scale = FALSE)
+test_pca<- test_pca$x[,1:ncomp]
+test_pca.y <-data_clas_scaled.test$y
+
+model_pca_svmPoly <- train(train_pca,train_pca.y,method='svmPoly',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+#pour voir quels paramètres peuvent être "tuned":
+modelLookup(model='svmPoly') # no parameters to tune
+
+plot(model_pca_svmPoly)# does not work if no parameters to tune
+
+plot(varImp(object=model_pca_svmPoly),main="svmPoly - Variable Importance")
+
+predictions_pca_svmPoly<-predict.train(object=model_pca_svmPoly,test_pca,type="raw")
+table(predictions_pca_svmPoly)
+
+confusionMatrix(predictions_pca_svmPoly,test_pca.y) 
+
+
+#####
+
+trainBis = as.data.frame(cbind(train_pca, train_pca.y))
+testBis= as.data.frame(cbind(test_pca, test_pca.y))
+lda.clas<- lda(train_pca.y~.,data=trainBis)
+pred.clas<-predict(lda.clas,newdata=testBis, type="response")
+#pred.clas$class renvoie la classe predite 
+table(testBis$test_pca.y,pred.clas$class) # compare les classes du test set avec les predictions
+prop.table(table(testBis$test_pca.y,pred.clas$class))# transforme les valeurs en proba
+
+cm= as.matrix(table(testBis$test_pca.y,pred.clas$class))
+accuracy = sum(diag(cm)) / sum(cm) # = 0.7272727
+precision = cm[1,1]/ apply(cm, 1, sum)[1]
+recall =  cm[1,1] /  apply(cm, 2, sum)[1]
+f1 = 2 * precision * recall / (precision + recall) 
+
+accuracy
+roc_curve<-roc(testBis$test_pca.y,as.vector(pred.clas$x))
+plot(roc_curve)
+
+pr <- prediction(pred.clas$x,testBis$test_pca.y )
+auc <-performance(pr, measure='auc')
+auc<- auc@y.values[[1]]
+auc
+
+
+
+
+
+
+
