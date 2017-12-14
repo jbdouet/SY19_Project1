@@ -2,6 +2,11 @@ set.seed(42)
 library(MASS)
 library(caret)
 
+fitControl <- trainControl(method = "cv",number = 10)
+regresseur <- caret::train(data_reg[,-51],data_reg$y,method='lasso',trControl= fitControl)
+
+predictions <- caret::predict.train(regresseur, data_reg[,-51])
+predictions
 ################## REGRESSION LINEAIRE ############
 
 data_reg<-read.csv('data/tp3_reg_app.txt',sep=' ')
@@ -131,8 +136,11 @@ CVerror= sum(CV)/length(CV)
 CVerror
 CV
 
-regresseur <- caret::train(data_reg[,-51],data_reg$y,method='lasso',trControl= fitControl)
 
+library(plotmo)
+plotres(regresseur)
+summary(regresseur)
+plot(regresseur)
 #### randomGLM ###
 fitControl <- trainControl(method = "cv",number = 10)
 model_randomGLM <- caret::train(data_reg.train[,-51],data_reg.train$y,method='randomGLM',trControl= fitControl)

@@ -4,6 +4,12 @@ library(caret)
 library("pROC")
 library("ROCR")
 
+classifieur <-  train(data_clas[,-31],data_clas$y,method='regLogistic',trControl= trainControl(
+  method = "cv",
+  number =10,
+  verboseIter = TRUE))
+
+
 ################## CLASSIFICATION ############
 
 data_clas<-read.csv('data/tp3_clas_app.txt',sep=' ')
@@ -32,10 +38,16 @@ dim(data_clas[data_clas$y ==2,]) # 123 elements
 ### Standardize data ###
 
 # on met la colonne y comme type factor pour ne pas la standardizer puisque que les chiffres 1 et 2 representent des classes
+data_clas$y=as.factor(data_clas$y) 
 data_clas.train$y=as.factor(data_clas.train$y) 
 data_clas.test$y=as.factor(data_clas.test$y)
 
 # On standardize et on remet les variables sous forme de data frames
+data_clas_scaled<- lapply(data_clas, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+data_clas_scaled=as.data.frame(data_clas_scaled)
+
 data_clas_scaled.train<- lapply(data_clas.train, function(x) if(is.numeric(x)){
   scale(x, center=TRUE, scale=TRUE)
 } else x)
@@ -67,6 +79,32 @@ pr <- prediction(pred.clas$x,data_clas.test$y )
 auc <-performance(pr, measure='auc')
 auc<- auc@y.values[[1]]
 auc
+
+#### Cross validation LDA
+
+
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas_scaled[-test_i, ]
+  test_xy <- data_clas_scaled[test_i, ]
+  print(k)
+  model_lda <- train(train_xy[,-31],train_xy$y,method='lda',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_lda<-predict.train(object=model_lda,test_xy[,-31])
+  cf<-confusionMatrix(predictions_lda,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
+}
+CVerror= sum(CV)/length(CV)
+CV
+CVerror
 
 ######################## Model 2: Regression logistique ############
 
@@ -106,20 +144,51 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   test_i <- which(folds_i == k)
   # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
   # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
-  train_xy <- data_clas.train[-test_i, ]
-  test_xy <- data_clas.train[test_i, ]
+  train_xy <- data_clas[-test_i, ]
+  test_xy <- data_clas[test_i, ]
   print(k)
-  glm.fit<- glm(y~.,data=train_xy,family=binomial)
-  cv_pred<-predict(glm.fit,newdata=test_xy, type = "response") 
-  CV[k]<- sum((test_xy$y-cv_pred)^2)
+  model_glm<- train(train_xy[,-31],train_xy$y,method='glm',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_glm<-predict.train(object=model_glm,test_xy[,-31],type="raw")
+  cf<-confusionMatrix(predictions_glm,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
 }
 CVerror= sum(CV)/length(CV)
+CV
+CVerror
 
+
+#### Cross validation regression logistique regularisée
+
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas[-test_i, ]
+  test_xy <- data_clas[test_i, ]
+  print(k)
+  model_regLogistic<- train(train_xy[,-31],train_xy$y,method='regLogistic',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_regLogistic<-predict.train(object=model_regLogistic,test_xy[,-31])
+  cf<-confusionMatrix(predictions_regLogistic,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
+}
+CVerror= sum(CV)/length(CV)
+CV
+CVerror
 #### Modeles avec librairie caret ###
 
 names(getModelInfo()) # donne le nom des modeles 
 
-####   GLM    ####
+############################## Modèle 3: GLM    #################################@
 
 model_glm <- train(data_clas_scaled.train[,-31],data_clas_scaled.train$y,method='glm',trControl= trainControl(
   method = "cv",
@@ -138,7 +207,7 @@ table(predictions_glm)
 
 confusionMatrix(predictions_glm,data_clas_scaled.test$y)
 
-####   rf - random forest    ####
+############################## Modele 4: rf - random forest ############################## 
 
 model_rf <- train(data_clas_scaled.train[,-31],data_clas_scaled.train$y,method='rf',trControl= trainControl(
   method = "cv",
@@ -157,7 +226,7 @@ table(predictions_rf)
 
 confusionMatrix(predictions_rf,data_clas_scaled.test$y)
 
-####   nnet    ####
+############################## Modele 5: nnet  ############################## 
 
 model_nnet <- train(data_clas.train[,-31],data_clas.train$y,method='nnet',trControl= trainControl(
   method = "cv",
@@ -176,7 +245,7 @@ table(predictions_nnet)
 
 confusionMatrix(predictions_nnet,data_clas.test$y)
 
-####   Naive Bayes    ####
+############################## Modele 6: Naive Bayes ############################## 
 
 model_naive_bayes <- train(data_clas.train[,-31],data_clas.train$y,method='nb',trControl= trainControl(
   method = "cv",
@@ -199,6 +268,7 @@ cf$overall["Accuracy"]
 #### CV Naive Bayes ####
 
 n_folds <- 10
+grid <- data.frame(fL=c(0,0.5,1.0), usekernel = TRUE, adjust=c(0,0.5,1.0))
 folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
 table(folds_i) # Pas le même nombre d'éléments 
 CV<-rep(0,10)
@@ -206,12 +276,13 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
   test_i <- which(folds_i == k)
   # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
   # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
-  train_xy <- data_clas.train[-test_i, ]
-  test_xy <- data_clas.train[test_i, ]
+  train_xy <- data_clas[-test_i, ]
+  test_xy <- data_clas[test_i, ]
   print(k)
-  model_naive_bayes <- train(train_xy[,-31],train_xy$y,method='nb',trControl= trainControl(
+  model_naive_bayes <- train(train_xy[,-31],train_xy$y,method='nb',tuneGrid=grid,trControl= trainControl(
     method = "cv",
     number =10,
+    savePredictions = T,
     verboseIter = TRUE))
   predictions_naive_bayes<-predict.train(object=model_naive_bayes,test_xy[,-31])
   cf<-confusionMatrix(predictions_naive_bayes,test_xy$y) 
@@ -220,7 +291,14 @@ for (k in 1:n_folds) {# we loop on the number of folds, to build k models
 CVerror= sum(CV)/length(CV)
 CV
 CVerror
-####   SVM poly   ####
+cf$overall
+
+
+
+# Plot:
+model_naive_bayes$pred$
+plot.roc(as.numeric(model_naive_bayes$pred$obs),as.numeric(model_naive_bayes$pred$pred))
+############################## Modele 7: SVM poly ############################## 
 
 model_svmPoly <- train(data_clas_scaled.train[,-31],data_clas.train$y,method='svmPoly',trControl= trainControl(
   method = "repeatedcv",
@@ -240,7 +318,60 @@ table(predictions_svmPoly)
 
 confusionMatrix(predictions_svmPoly,data_clas_scaled.test$y) 
 
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,10)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas[-test_i, ]
+  test_xy <- data_clas[test_i, ]
+  print(k)
+  model_svmPoly<- train(train_xy[,-31],train_xy$y,method='svmPoly',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_svmPoly<-predict.train(object=model_svmPoly,test_xy[,-31],type="raw")
+  cf<-confusionMatrix(predictions_svmPoly,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
+}
+CVerror= sum(CV)/length(CV)
+CV
+CVerror
 
+#################################### XGBOOST ##############################@
+
+n_folds <- 10
+folds_i <- sample(rep(1:n_folds, length.out = ntrain)) # !!! le ntrain doit correspondre à la taille du dataset que l'on utilisera dans la boucle de cross validation 
+table(folds_i) # Pas le même nombre d'éléments 
+CV<-rep(0,1)
+for (k in 1:n_folds) {# we loop on the number of folds, to build k models
+  test_i <- which(folds_i == k)
+  # les datasets entre le fit et le predict doivent être les mêmes car c'est le même dataset que l'on divise en k-fold 
+  # on peut utiliser le data set complet ou seulement le train et avoir une idée finale de la performance sur le test
+  train_xy <- data_clas[-test_i, ]
+  test_xy <- data_clas[test_i, ]
+  print(k)
+  model_xgboost<- train(train_xy[,-31],train_xy$y,method='C5.0Cost',trControl= trainControl(
+    method = "cv",
+    number =10,
+    verboseIter = TRUE))
+  predictions_xgboost<-predict.train(object=model_xgboost,test_xy[,-31])
+  cf<-confusionMatrix(predictions_xgboost,test_xy$y) 
+  CV[k]<- cf$overall["Accuracy"]
+}
+CVerror= sum(CV)/length(CV)
+CV
+CVerror
+##############################  PCA sur différents modeles ############################## 
+
+
+prcomp(data_clas[,-31])
+summary(x)
+plot(x)
+print(x)
 ### Principal component analysis - SVM
 ncomp <-30
 summary(prcomp(data_clas.train[,-31], scale = FALSE))
@@ -271,8 +402,9 @@ confusionMatrix(predictions_pca_svmPoly,data_clas.test$y)
 
 
 ### Principal component analysis - NAive bayes
-ncomp <-20
+ncomp <-30
 summary(prcomp(data_clas.train[,-31], scale = FALSE))
+plot(prcomp(data_clas.train[,-31], scale = FALSE))
 train_pca<-prcomp(data_clas.train[,-31], scale = FALSE)
 train_pca<- train_pca$x[,1:ncomp]
 train_pca.y <- data_clas.train$y
@@ -281,7 +413,7 @@ test_pca<-prcomp(data_clas.test[,-31], scale = FALSE)
 test_pca<- test_pca$x[,1:ncomp]
 test_pca.y <-data_clas.test$y
 
-model_pca_naive_bayes<- train(train_pca,train_pca.y,method='naive_bayes',trControl= trainControl(
+  model_pca_naive_bayes<- train(train_pca,train_pca.y,method='naive_bayes',trControl= trainControl(
   method = "cv",
   number =10,
   verboseIter = TRUE))
